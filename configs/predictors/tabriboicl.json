@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "public_predictor_name": "TabRiboICL",
+    "public_predictor_scope": "complete_read_specific_p_site_predictor",
+    "definition": "TabRiboICL is the complete predictor comprising the read-candidate representation and feature set, the underlying TabICL classifier, the train-derived hierarchical offset prior and decoder, within-read normalization, and the recorded training and inference protocol.",
+    "legacy_internal_identifiers": {
+      "family": "tabicl",
+      "result_id_pattern": "tabicl_*",
+      "status": "legacy_internal_only"
+    },
+    "base_learner": {
+      "name": "TabICL",
+      "class": "tabicl.TabICLClassifier",
+      "role": "underlying_classifier",
+      "is_synonymous_with_public_predictor": false
+    },
+    "naming_rules": {
+      "reader_facing_predictor": "TabRiboICL",
+      "base_learner_only": "TabICL",
+      "internal_paths_and_result_ids_may_use": "tabicl_*"
+    }
+  },
+  "task_contract": {
+    "task": "p_site_offset_prediction",
+    "prediction_target": "p_site_offset_from_5prime",
+    "output_granularity": "one_selected_p_site_offset_per_read",
+    "candidate_representation": "one_binary-classification row per read-candidate-offset pair",
+    "candidate_offsets_nt": {
+      "min": 8,
+      "max": 20,
+      "bounds": "inclusive"
+    }
+  },
+  "evaluated_recipe": {
+    "feature_set": {
+      "name": "no_boundary",
+      "features": [
+        "candidate_offset",
+        "read_length",
+        "strand",
+        "mapq",
+        "five_prime_kmer",
+        "three_prime_kmer",
+        "local_coverage_pm15",
+        "local_5p_end_density",
+        "local_3p_end_density",
+        "organism",
+        "nuclease",
+        "library_method",
+        "study_id"
+      ]
+    },
+    "learner": {
+      "class": "tabicl.TabICLClassifier",
+      "fit_target": "candidate_row_binary_label",
+      "positive_class_score": "predict_proba_positive_class",
+      "n_estimators": 4
+    },
+    "offset_prior": {
+      "source_rows": "positive_training_rows_only",
+      "smoothing": 1.0,
+      "hierarchy_in_fallback_order": [
+        [
+          "sample_id",
+          "read_length"
+        ],
+        [
+          "study_id",
+          "read_length"
+        ],
+        [
+          "organism",
+          "nuclease",
+          "library_method",
+          "read_length"
+        ],
+        [
+          "organism",
+          "nuclease",
+          "read_length"
+        ],
+        [
+          "organism",
+          "read_length"
+        ],
+        [
+          "read_length"
+        ]
+      ],
+      "terminal_fallbacks": [
+        "global_offset_prior",
+        "uniform_over_available_offsets"
+      ]
+    },
+    "scoring_and_decoding": {
+      "raw_score_power": 1.5,
+      "offset_prior_power": 1.0,
+      "unnormalized_score": "clip(p_raw, 1e-12, 1.0)^1.5 * clip(offset_prior, 1e-12, 1.0)^1.0",
+      "normalization": "sum_to_one_within_read",
+      "normalization_denominator_floor": 1e-12,
+      "call_rule": "select_candidate_with_maximum_p_offset_per_read"
+    },
+    "randomness": {
+      "base_seed": 20260517,
+      "training_read_group_sampling_seed": 20260517,
+      "fallback_test_read_group_sampling_seed_rule": "base_seed_plus_1"
+    }
+  },
+  "runtime_provenance": {
+    "tabicl_package_version": {
+      "status": "not_recorded",
+      "note": "No retained run manifest or environment lock identifies the exact package version used for the finalized predictions."
+    },
+    "device": {
+      "status": "not_recorded",
+      "note": "The effective device is not recorded in the retained prediction artifacts."
+    },
+    "kv_cache": {
+      "status": "not_recorded",
+      "note": "The effective cache mode is not recorded in the retained prediction artifacts."
+    }
+  },
+  "entrypoints": {
+    "registry": "configs/predictors.json",
+    "adapter": "tabriboicl.py",
+    "predictor_implementation": "tools/tabicl/train.py",
+    "shared_prior_scoring_and_sampling": "tools/shared/learned_candidate_models.py",
+    "feature_set_registry": "common/feature_sets.py",
+    "candidate_model_runner": "tools/shared/run_candidate_models.sh",
+    "benchmark_orchestrator": "scripts/run_p_site_offset_prediction_evals.sh",
+    "prediction_command": "python -m tabriboicl predict --model tabriboicl"
+  },
+  "evidence_files": [
+    {
+      "path": "configs/p_site_offset_prediction_landmark_riboseq.tsv",
+      "role": "evaluated split, predictor, and training-protocol selection"
+    },
+    {
+      "path": "configs/dataset.yaml",
+      "role": "task target and candidate-offset contract"
+    },
+    {
+      "path": "common/feature_sets.py",
+      "role": "no_boundary feature definition"
+    },
+    {
+      "path": "tools/shared/learned_candidate_models.py",
+      "role": "sampling, hierarchical offset prior, scoring, and within-read normalization"
+    },
+    {
+      "path": "tools/tabicl/train.py",
+      "role": "base-learner construction and complete predictor inference path"
+    },
+    {
+      "path": "tools/shared/run_candidate_models.sh",
+      "role": "evaluated ensemble setting, adapter invocation, and legacy result-id construction"
+    },
+    {
+      "path": "configs/predictors.json",
+      "role": "shared predictor registry and native command routing"
+    },
+    {
+      "path": "tabriboicl.py",
+      "role": "shared command interface for prediction and evaluation"
+    }
+  ]
+}

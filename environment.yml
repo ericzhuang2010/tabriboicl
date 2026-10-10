@@ -1,0 +1,17 @@
+name: tabribo-local
+# Python libraries are installed from pyproject.toml by scripts/setup_local_env.sh.
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pip
+  - sra-tools
+  - cutadapt
+  - bowtie
+  - bowtie2
+  - star
+  - samtools
+  - bedtools
+  - seqtk
+  - pigz

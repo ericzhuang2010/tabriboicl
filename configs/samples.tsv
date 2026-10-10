@@ -1,0 +1,32 @@
+run	organism	ref_key	study_key	sra_gb	adapter	min_len	max_len	trim5	library_label	nuclease	protocol	library_method	library_name
+SRR1039768	Drosophila melanogaster	dmel	SRP033366	1.30	CTGTAGGCACCATCAAT	20	120	6	activated_egg_noCHX_RPF	rnase_i	rnase_i	cDNA	GSM1276396
+SRR1039769	Drosophila melanogaster	dmel	SRP033366	1.32	CTGTAGGCACCATCAAT	20	120	6	GSE52799_RPF_GSM1276397	rnase_i	rnase_i	cDNA	GSM1276397
+SRR1039770	Drosophila melanogaster	dmel	SRP033366	1.27	CTGTAGGCACCATCAAT	20	120	6	mature_oocyte_CHX_RPF	rnase_i	rnase_i	cDNA	GSM1276398
+SRR1039771	Drosophila melanogaster	dmel	SRP033366	1.36	CTGTAGGCACCATCAAT	20	120	6	GSE52799_RPF_GSM1276399	rnase_i	rnase_i	cDNA	GSM1276399
+SRR1039772	Drosophila melanogaster	dmel	SRP033366	1.42	CTGTAGGCACCATCAAT	20	120	6	GSE52799_RPF_GSM1276400	rnase_i	rnase_i	cDNA	GSM1276400
+SRR19387514	Drosophila melanogaster	dmel	PRJNA842067	0.30	CTGTAGGCACCATCAAT	20	120	0	Early-T-II_RiboSeq	rnase_i	rnase_i	other	GSM6190436
+SRR19387512	Drosophila melanogaster	dmel	PRJNA842067	0.47	CTGTAGGCACCATCAAT	20	120	0	Early-T-III_RiboSeq	rnase_i	rnase_i	other	GSM6190438
+SRR19387520	Drosophila melanogaster	dmel	PRJNA842067	0.81	CTGTAGGCACCATCAAT	20	120	0	GSE204739_RiboSeq_GSM6190430	rnase_i	rnase_i	other	GSM6190430
+SRR3031124	Drosophila melanogaster	dmel	SRP067542	1.58	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	em_0_2h_ribo	mnase	mnase	size fractionation	em_0_2h_ribo
+SRR3031125	Drosophila melanogaster	dmel	SRP067542	1.77	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	em_2_6h_ribo	mnase	mnase	size fractionation	em_2_6h_ribo
+SRR3031126	Drosophila melanogaster	dmel	SRP067542	1.67	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	em_6_12h_ribo	mnase	mnase	size fractionation	em_6_12h_ribo
+SRR3031127	Drosophila melanogaster	dmel	SRP067542	1.99	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	em_12_24h_ribo	mnase	mnase	size fractionation	em_12_24h_ribo
+SRR3031134	Drosophila melanogaster	dmel	SRP067542	1.29	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	mal2_ribo	mnase	mnase	size fractionation	mal2_ribo
+SRR3031135	Drosophila melanogaster	dmel	SRP067542	1.09	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	s2_wt_ribo	mnase	mnase	size fractionation	s2_wt_ribo
+SRR7262143	Drosophila melanogaster	dmel	SRP067542	1.82	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	head_male_fly_ribo	mnase	mnase	size fractionation	head_male_fly_ribo
+SRR7262146	Drosophila melanogaster	dmel	SRP067542	2.08	TGGAATTCTCGGGTGCCAAGGAACTC	20	120	0	head_female_fly_ribo	mnase	mnase	size fractionation	head_female_fly_ribo
+SRR23242245	Saccharomyces cerevisiae	scer	SRP419250	1.10	AGATCGGAAGAGC	20	120	0	yP2	p1	p1	size fractionation	yP2
+SRR23242246	Saccharomyces cerevisiae	scer	SRP419250	0.85	AGATCGGAAGAGC	20	120	0	yP1	p1	p1	size fractionation	yP1
+SRR23242261	Saccharomyces cerevisiae	scer	SRP419250	0.87	AGATCGGAAGAGC	20	120	0	DM4	unknown	unknown	size fractionation	DM4
+SRR23242262	Saccharomyces cerevisiae	scer	SRP419250	0.90	AGATCGGAAGAGC	20	120	0	DM3	unknown	unknown	size fractionation	DM3
+SRR23242240	Saccharomyces cerevisiae	scer	SRP419250	1.16	AGATCGGAAGAGC	20	120	0	M4	unknown	unknown	size fractionation	M4
+SRR23242241	Saccharomyces cerevisiae	scer	SRP419250	0.89	AGATCGGAAGAGC	20	120	0	M3	unknown	unknown	size fractionation	M3
+SRR23242242	Saccharomyces cerevisiae	scer	SRP419250	1.09	AGATCGGAAGAGC	20	120	0	M2	unknown	unknown	size fractionation	M2
+SRR23242265	Saccharomyces cerevisiae	scer	SRP419250	2.11	AGATCGGAAGAGC	20	120	0	OTTR1	ottr	ottr	size fractionation	OTTR1
+SRR1049521	Saccharomyces cerevisiae	scer	GSE53268	2.63	CTGTAGGCACCATCAAT	20	120	8	Weinberg_2016_CHX_free_RPF_GSM1289257	unknown	unknown	cDNA	GSM1289257
+SRR1688545	Saccharomyces cerevisiae	scer	GSE63789	2.06	CTGTAGGCACCATCAAT	20	120	0	Pop_2014_RPF_GSM1557447	unknown	unknown	other	GSM1557447
+SRR1363412	Saccharomyces cerevisiae	scer	GSE58321	1.05	CTGTAGGCACCATCAAT	20	120	0	Lareau_2014_untreated_RPF_GSM1406453	unknown	unknown	cDNA	GSM1406453
+SRR1363413	Saccharomyces cerevisiae	scer	GSE58321	1.09	CTGTAGGCACCATCAAT	20	120	0	Lareau_2014_untreated_RPF_GSM1406454	unknown	unknown	cDNA	GSM1406454
+SRR1363414	Saccharomyces cerevisiae	scer	GSE58321	1.12	CTGTAGGCACCATCAAT	20	120	0	Lareau_2014_untreated_RPF_GSM1406455	unknown	unknown	cDNA	GSM1406455
+SRR1177157	Saccharomyces cerevisiae	scer	SRP038992	6.24	CTGTAGGCACCATCAAT	20	120	0	Ribodeblur_Albert_2014_tutorial_RPF_GSM1335348	unknown	unknown	cDNA	GSM1335348
+SRR19387519	Drosophila melanogaster	dmel	PRJNA842067	1.60	CTGTAGGCACCATCAAT	20	120	0	Patraquim_2022_late_RPF_GSM6190431	rnase_i	rnase_i	other	GSM6190431

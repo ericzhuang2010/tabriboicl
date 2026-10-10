@@ -1,0 +1,13 @@
+experiment	enabled	algorithms	train_specs	compare_train_spec
+within_sample	1	fixed_offset,read_length_offset,psite,ribowaltz,ribodeblur,riboba,scikit_ribo,asite_ip		13000
+within_sample	1	tabicl	13000	13000
+within_sample	1	xgboost,lightgbm	2000	2000
+leave_one_study_id/*	1	fixed_offset,read_length_offset,psite,ribowaltz,ribodeblur,riboba,scikit_ribo,asite_ip		13000
+leave_one_study_id/*	1	tabicl	13000	13000
+leave_one_study_id/*	1	xgboost,lightgbm	2000	2000
+leave_one_organism/*	1	fixed_offset,read_length_offset,psite,ribowaltz,ribodeblur,riboba,scikit_ribo,asite_ip		13000
+leave_one_organism/*	1	tabicl	13000	13000
+leave_one_organism/*	1	xgboost,lightgbm	2000	2000
+leave_one_nuclease/*	1	fixed_offset,read_length_offset,psite,ribowaltz,ribodeblur,riboba,scikit_ribo,asite_ip		13000
+leave_one_nuclease/*	1	tabicl	13000	13000
+leave_one_nuclease/*	1	xgboost,lightgbm	2000	2000

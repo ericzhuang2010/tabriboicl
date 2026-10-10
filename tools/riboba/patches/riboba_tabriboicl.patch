@@ -1,0 +1,327 @@
+diff --git a/DESCRIPTION b/DESCRIPTION
+index 7103c5b..88abead 100644
+--- a/DESCRIPTION
++++ b/DESCRIPTION
+@@ -14,7 +14,6 @@ Encoding: UTF-8
+ Roxygen: list(markdown = TRUE)
+ RoxygenNote: 7.3.2
+ Imports:
+-    BSgenomeForge,
+     BiocGenerics,
+     Biostrings,
+     GenomeInfoDb,
+@@ -31,8 +30,9 @@ Imports:
+     ranger,
+     rtracklayer,
+     stringr,
+-    txdbmaker,
+     xgboost
+ Suggests:
+-    testthat (>= 3.0.0)
++    BSgenomeForge,
++    testthat (>= 3.0.0),
++    txdbmaker
+ Config/testthat/edition: 3
+diff --git a/R/helper.R b/R/helper.R
+index 13e49d3..1d15a2c 100755
+--- a/R/helper.R
++++ b/R/helper.R
+@@ -165,7 +165,7 @@ learn_bias_parameters <- function(tx_info,
+       bias = bias
+     )
+ 
+-    cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1]
++    cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1, drop = FALSE]
+ 
+     maintain_cumprod5rev <- matrix(
+       data = 1,
+@@ -174,12 +174,12 @@ learn_bias_parameters <- function(tx_info,
+     )
+ 
+     maintain_cumprod5rev[, -1] <- matrixStats::rowCumprods(
+-      maintain_prob5[, length(prob_hd5):2]
++      maintain_prob5[, length(prob_hd5):2, drop = FALSE]
+     )
+ 
+     final_p5 <- maintain_cumprod5rev * cle_p5rev
+ 
+-    final_p5 <- final_p5[, ncol(final_p5):1]
++    final_p5 <- final_p5[, ncol(final_p5):1, drop = FALSE]
+ 
+     final_p5 <- final_p5 / Matrix::rowSums(final_p5)
+ 
+@@ -199,7 +199,7 @@ learn_bias_parameters <- function(tx_info,
+     )
+ 
+     maintain_cumprod3[, -1] <- matrixStats::rowCumprods(
+-      maintain_prob3[, -length(prob_hd3)]
++      maintain_prob3[, -length(prob_hd3), drop = FALSE]
+     )
+ 
+     final_p3 <- maintain_cumprod3 * cle_p3
+@@ -471,7 +471,7 @@ learn_bias_parameters <- function(tx_info,
+       bias = bias
+     )
+ 
+-    cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1]
++    cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1, drop = FALSE]
+ 
+     maintain_cumprod5rev <- matrix(
+       data = 1,
+@@ -480,12 +480,12 @@ learn_bias_parameters <- function(tx_info,
+     )
+ 
+     maintain_cumprod5rev[, -1] <- matrixStats::rowCumprods(
+-      x = maintain_prob5[, length(prob_hd5):2]
++      x = maintain_prob5[, length(prob_hd5):2, drop = FALSE]
+     )
+ 
+     final_p5 <- maintain_cumprod5rev * cle_p5rev
+ 
+-    final_p5 <- final_p5[, length(prob_hd5):1]
++    final_p5 <- final_p5[, length(prob_hd5):1, drop = FALSE]
+ 
+     final_p5 <- final_p5 / matrixStats::rowSums2(final_p5)
+ 
+@@ -506,7 +506,7 @@ learn_bias_parameters <- function(tx_info,
+     )
+ 
+     maintain_cumprod3[, -1] <- matrixStats::rowCumprods(
+-      x = maintain_prob3[, -length(prob_hd3)]
++      x = maintain_prob3[, -length(prob_hd3), drop = FALSE]
+     )
+ 
+     final_p3 <- maintain_cumprod3 * cle_p3
+@@ -2232,6 +2232,7 @@ learn_bias_parameters <- function(tx_info,
+ 
+   return(list(
+     par_0 = lig_par$par_0,
++    ribo_num = par_0$ribo_num,
+     rpf_corrected = rpf_overlap_corrected[, -4],
+     lst_rpf = lst_rpf,
+     lig_par = lig_par$par_0
+@@ -2265,6 +2266,7 @@ learn_bias_parameters <- function(tx_info,
+   }
+   return(list(
+     par_0 = par_0$par_0,
++    ribo_num = par_0$ribo_num,
+     rpf_corrected = NULL,
+     lst_rpf = lst_rpf,
+     lig_par = NULL
+@@ -3547,7 +3549,7 @@ estimate_orf_psite <- function(
+       bias = bias
+     )
+ 
+-    cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1]
++    cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1, drop = FALSE]
+ 
+     maintain_cumprod5rev <- matrix(
+       data = 1,
+@@ -3556,12 +3558,12 @@ estimate_orf_psite <- function(
+     )
+ 
+     maintain_cumprod5rev[, -1] <- matrixStats::rowCumprods(
+-      maintain_prob5[, length(prob_hd5):2]
++      maintain_prob5[, length(prob_hd5):2, drop = FALSE]
+     )
+ 
+     final_p5 <- maintain_cumprod5rev * cle_p5rev
+ 
+-    final_p5 <- final_p5[, ncol(final_p5):1]
++    final_p5 <- final_p5[, ncol(final_p5):1, drop = FALSE]
+ 
+     final_p5 <- final_p5 / Matrix::rowSums(final_p5)
+ 
+@@ -3581,7 +3583,7 @@ estimate_orf_psite <- function(
+     )
+ 
+     maintain_cumprod3[, -1] <- matrixStats::rowCumprods(
+-      maintain_prob3[, -length(prob_hd3)]
++      maintain_prob3[, -length(prob_hd3), drop = FALSE]
+     )
+ 
+     final_p3 <- maintain_cumprod3 * cle_p3
+@@ -5075,7 +5077,7 @@ get_cleavage_prob <- function(seqs,
+     bias = bias
+   )
+ 
+-  cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1]
++  cle_p5rev <- 1 - maintain_prob5[, length(prob_hd5):1, drop = FALSE]
+ 
+   maintain_cumprod5rev <- matrix(
+     data = 1,
+@@ -5084,12 +5086,12 @@ get_cleavage_prob <- function(seqs,
+   )
+ 
+   maintain_cumprod5rev[, -1] <- matrixStats::rowCumprods(
+-    maintain_prob5[, length(prob_hd5):2]
++    maintain_prob5[, length(prob_hd5):2, drop = FALSE]
+   )
+ 
+   final_p5 <- maintain_cumprod5rev * cle_p5rev
+ 
+-  final_p5 <- final_p5[, ncol(final_p5):1]
++  final_p5 <- final_p5[, ncol(final_p5):1, drop = FALSE]
+ 
+   final_p5 <- final_p5 / Matrix::rowSums(final_p5)
+ 
+@@ -5109,7 +5111,7 @@ get_cleavage_prob <- function(seqs,
+   )
+ 
+   maintain_cumprod3[, -1] <- matrixStats::rowCumprods(
+-    maintain_prob3[, -length(prob_hd3)]
++    maintain_prob3[, -length(prob_hd3), drop = FALSE]
+   )
+ 
+   final_p3 <- maintain_cumprod3 * cle_p3
+diff --git a/R/helper_preprocess.R b/R/helper_preprocess.R
+index 646c287..e8b6ba7 100644
+--- a/R/helper_preprocess.R
++++ b/R/helper_preprocess.R
+@@ -256,6 +256,7 @@ build_annotation_index <- function(
+       )[, -1:-4]
+     ) == 0L
+     flt_tx_seqs <- flt_tx_seqs[idx]
++    flt_tx_lens <- flt_tx_lens[idx, , drop = FALSE]
+     mix_tx <- Biostrings::xscat(unlist(flt_tx_seqs))
+ 
+     # add structure information
+@@ -750,14 +751,17 @@ build_annotation_index <- function(
+   message("Start build_annotation_index()")
+   message(
+     paste0(
+-      "Create BSgenome package for ", scientific_name, " ..."
++      "Load genome sequence for ", scientific_name, " ..."
+     )
+   )
+-  create_bs(
+-    out_dir = output_dir,
+-    seq_file = genome_file,
+-    scientific_name = scientific_name,
+-    anno_name = annotation_version
++  if (!file.exists(paste0(genome_file, ".fai"))) {
++    Rsamtools::indexFa(genome_file)
++  }
++  bs_genome <- Rsamtools::FaFile(genome_file)
++  fa_index <- Rsamtools::scanFaIndex(bs_genome)
++  df_seqinfo <- GenomeInfoDb::Seqinfo(
++    seqnames = as.character(GenomeInfoDb::seqnames(fa_index)),
++    seqlengths = as.integer(IRanges::width(fa_index))
+   )
+ 
+   message(
+@@ -765,36 +769,20 @@ build_annotation_index <- function(
+       "Create TxDb object for ", scientific_name, " ..."
+     )
+   )
+-  df_seqinfo <- GenomeInfoDb::seqinfo(
+-    rtracklayer::TwoBitFile(
+-      sub(
+-        x = genome_file,
+-        pattern = "\\.fa$|\\.fasta", "\\.2bit"
+-      )
+-    )
+-  )
+-  txdb <- txdbmaker::makeTxDbFromGFF(
++  gff_format <- if (grepl("\\.gtf($|\\.gz$)", gff_file, ignore.case = TRUE)) {
++    "gtf"
++  } else {
++    "gff"
++  }
++  txdb <- GenomicFeatures::makeTxDbFromGFF(
+     file = gff_file,
+-    format = "gtf",
++    format = gff_format,
+     chrominfo = df_seqinfo
+   )
+ 
+   message("Get the transcript containing the longest CDS ...")
+-  bs_name <- paste0(
+-    "BSgenome.",
+-    paste0(
+-      substr(scientific_name, 1, 1),
+-      rev(stringr::str_split(scientific_name, pattern = "\\.")[[1]])[1]
+-    ),
+-    ".",
+-    annotation_version,
+-    ".Ribo"
+-  )
+-  require(bs_name,
+-    character.only = TRUE
+-  )
+   tx_info_lst <- get_tx_info(
+-    bs = get(bs_name),
++    bs = bs_genome,
+     txdb = txdb
+   )
+ 
+@@ -822,7 +810,7 @@ build_annotation_index <- function(
+   gene_info <- get_gene(
+     txdb = txdb,
+     genome_fa = genome_file,
+-    bs_genome = get(bs_name)
++    bs_genome = bs_genome
+   )
+ 
+   cds_exon <- get_cds_position(gene_info = gene_info)
+diff --git a/R/prepare_bam.sh b/R/prepare_bam.sh
+index f7de3f1..7aed2d3 100644
+--- a/R/prepare_bam.sh
++++ b/R/prepare_bam.sh
+@@ -60,23 +60,45 @@ load_config() {
+     echo "Config file not found: $cfg" >&2
+     exit 1
+   fi
+-  [[ -z "$WORKDIR" ]] && WORKDIR="$(read_config_value workdir "$cfg")"
+-  [[ -z "$FASTQ_DIR" ]] && FASTQ_DIR="$(read_config_value fastq_dir "$cfg")"
+-  [[ -z "$ANNOTATE_DIR" ]] && ANNOTATE_DIR="$(read_config_value annotate_dir "$cfg")"
+-  [[ -z "$GENOME_FILE" ]] && GENOME_FILE="$(read_config_value genome_file "$cfg")"
+-  [[ -z "$SPECIES" ]] && SPECIES="$(read_config_value species "$cfg")"
+-  [[ -z "$RRNA_FA" ]] && RRNA_FA="$(read_config_value rrna_fa "$cfg")"
+-  [[ -z "$CDS_FA" ]] && CDS_FA="$(read_config_value cds_fa "$cfg")"
+-  [[ -z "$LNCRNA_FA" ]] && LNCRNA_FA="$(read_config_value lncrna_fa "$cfg")"
++  if [[ -z "$WORKDIR" ]]; then
++    WORKDIR="$(read_config_value workdir "$cfg")"
++  fi
++  if [[ -z "$FASTQ_DIR" ]]; then
++    FASTQ_DIR="$(read_config_value fastq_dir "$cfg")"
++  fi
++  if [[ -z "$ANNOTATE_DIR" ]]; then
++    ANNOTATE_DIR="$(read_config_value annotate_dir "$cfg")"
++  fi
++  if [[ -z "$GENOME_FILE" ]]; then
++    GENOME_FILE="$(read_config_value genome_file "$cfg")"
++  fi
++  if [[ -z "$SPECIES" ]]; then
++    SPECIES="$(read_config_value species "$cfg")"
++  fi
++  if [[ -z "$RRNA_FA" ]]; then
++    RRNA_FA="$(read_config_value rrna_fa "$cfg")"
++  fi
++  if [[ -z "$CDS_FA" ]]; then
++    CDS_FA="$(read_config_value cds_fa "$cfg")"
++  fi
++  if [[ -z "$LNCRNA_FA" ]]; then
++    LNCRNA_FA="$(read_config_value lncrna_fa "$cfg")"
++  fi
+   local cfg_threads
+   cfg_threads="$(read_config_value threads "$cfg")"
+-  [[ -n "$cfg_threads" && "$THREADS" == "12" ]] && THREADS="$cfg_threads"
++  if [[ -n "$cfg_threads" && "$THREADS" == "12" ]]; then
++    THREADS="$cfg_threads"
++  fi
+ }
+ 
+ infer_transcript_fastas() {
+   if [[ -n "$ANNOTATE_DIR" ]]; then
+-    [[ -z "$CDS_FA" ]] && CDS_FA="$ANNOTATE_DIR/transcript/longest_txs.fa"
+-    [[ -z "$LNCRNA_FA" ]] && LNCRNA_FA="$ANNOTATE_DIR/transcript/lncRNA_txs.fa"
++    if [[ -z "$CDS_FA" ]]; then
++      CDS_FA="$ANNOTATE_DIR/transcript/longest_txs.fa"
++    fi
++    if [[ -z "$LNCRNA_FA" ]]; then
++      LNCRNA_FA="$ANNOTATE_DIR/transcript/lncRNA_txs.fa"
++    fi
+   fi
+ }
+ 

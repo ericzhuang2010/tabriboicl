@@ -1,0 +1,11 @@
+include README.md THIRD_PARTY.md .gitignore .gitattributes environment.yml
+recursive-include .github *.yml
+recursive-include configs *.json *.yaml *.tsv *.md
+recursive-include docs *.md *.json
+recursive-include scripts *.py *.sh
+recursive-include tools *.py *.sh *.R *.yaml *.md *.patch
+prune tools/asite_ip/src
+prune tools/riboba/src
+prune tools/ribodeblur/src
+prune tools/scikit_ribo/src
+global-exclude __pycache__ *.py[cod] .DS_Store

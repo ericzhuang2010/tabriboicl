@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "predictors": {
+    "tabicl": {
+      "name": "tabicl",
+      "display_name": "TabRiboICL",
+      "public_predictor_name": "TabRiboICL",
+      "public_predictor_scope": "complete_predictor",
+      "base_learner_name": "TabICL",
+      "base_learner_class": "tabicl.TabICLClassifier",
+      "legacy_family": "tabicl",
+      "legacy_result_id_pattern": "tabicl_*",
+      "identity_spec": "configs/predictors/tabriboicl.json",
+      "tags": [
+        "native",
+        "learned",
+        "p_site"
+      ],
+      "input_views": [
+        "candidate_table_split"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "entrypoint": "tools/tabicl/train.py",
+      "python_module": "tools.tabicl.train",
+      "default_args": []
+    },
+    "xgboost": {
+      "name": "xgboost",
+      "tags": [
+        "native",
+        "learned",
+        "p_site"
+      ],
+      "input_views": [
+        "candidate_table_split"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "XGBoost",
+      "entrypoint": "tools/shared/gbdt_candidate_model.py",
+      "python_module": "tools.shared.gbdt_candidate_model",
+      "default_args": [
+        "--model",
+        "xgboost"
+      ]
+    },
+    "lightgbm": {
+      "name": "lightgbm",
+      "tags": [
+        "native",
+        "learned",
+        "p_site"
+      ],
+      "input_views": [
+        "candidate_table_split"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "LightGBM",
+      "entrypoint": "tools/shared/gbdt_candidate_model.py",
+      "python_module": "tools.shared.gbdt_candidate_model",
+      "default_args": [
+        "--model",
+        "lightgbm"
+      ]
+    },
+    "fixed_offset": {
+      "name": "fixed_offset",
+      "tags": [
+        "native",
+        "deterministic",
+        "p_site"
+      ],
+      "input_views": [
+        "candidate_table_split"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "Fixed offset",
+      "entrypoint": "tools/offset_baselines/predict.py",
+      "python_module": "tools.offset_baselines.predict",
+      "default_args": [
+        "--models",
+        "fixed_offset"
+      ]
+    },
+    "read_length_offset": {
+      "name": "read_length_offset",
+      "tags": [
+        "native",
+        "deterministic",
+        "p_site"
+      ],
+      "input_views": [
+        "candidate_table_split"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "Read-length offset",
+      "entrypoint": "tools/offset_baselines/predict.py",
+      "python_module": "tools.offset_baselines.predict",
+      "default_args": [
+        "--models",
+        "read_length_offset"
+      ]
+    },
+    "psite": {
+      "name": "psite",
+      "tags": [
+        "external",
+        "learned",
+        "p_site"
+      ],
+      "input_views": [
+        "transcriptome_bowtie2",
+        "psite_annotations"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "PSite",
+      "entrypoint": "tools/psite/run.sh"
+    },
+    "ribowaltz": {
+      "name": "ribowaltz",
+      "tags": [
+        "external",
+        "offset",
+        "p_site"
+      ],
+      "input_views": [
+        "transcriptome_bowtie2",
+        "ribowaltz_annotations"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "riboWaltz",
+      "entrypoint": "tools/ribowaltz/run.sh"
+    },
+    "ribodeblur": {
+      "name": "ribodeblur",
+      "tags": [
+        "external",
+        "profile",
+        "p_site"
+      ],
+      "input_views": [
+        "transcriptome_bowtie2",
+        "ribodeblur_references"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "Ribodeblur",
+      "entrypoint": "tools/ribodeblur/run.sh"
+    },
+    "riboba": {
+      "name": "riboba",
+      "tags": [
+        "external",
+        "profile",
+        "p_site"
+      ],
+      "input_views": [
+        "riboba_fastq",
+        "annotations"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "RiboBA",
+      "entrypoint": "tools/riboba/run.sh"
+    },
+    "scikit_ribo": {
+      "name": "scikit_ribo",
+      "tags": [
+        "external",
+        "profile",
+        "a_site"
+      ],
+      "input_views": [
+        "genome_bams",
+        "scikit_ribo_indexes"
+      ],
+      "outputs": {
+        "prediction_schema": "candidate_offsets"
+      },
+      "display_name": "Scikit-ribo",
+      "entrypoint": "tools/scikit_ribo/run.sh"
+    },
+    "asite_ip": {
+      "name": "asite_ip",
+      "tags": [
+        "external",
+        "offset",
+        "a_site",
+        "derived_p_site"
+      ],
+      "input_views": [
+        "transcriptome_bowtie2",
+        "asite_ip_annotations"
+      ],
+      "outputs": {
+        "native_schema": "a_site_offsets_by_read_length_and_frame",
+        "prediction_schema": "candidate_offsets"
+      },
+      "requires": {
+        "external_source_env": "ASITE_IP_SRC"
+      },
+      "display_name": "Asite-IP",
+      "entrypoint": "tools/asite_ip/run.sh"
+    }
+  }
+}

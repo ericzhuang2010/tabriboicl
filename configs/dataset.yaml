@@ -1,0 +1,25 @@
+task: p_site_offset_prediction
+dataset: landmark_riboseq
+prediction_target: p_site_offset_from_5prime
+read_id_format: "<run>|<query_name>"
+sample_table: samples.tsv
+candidate_offsets:
+  min: 8
+  max: 20
+tables:
+  reads: tables/reads.parquet
+  candidates: tables/candidate_offsets.parquet
+splits_root: splits
+views:
+  genome_bams: alignments/genome_bams
+  transcriptome_bowtie2: views/transcriptome_bowtie2
+  annotations: views/annotations
+  psite_annotations: views/psite_annotations
+  ribowaltz_annotations: views/ribowaltz_annotations
+  ribodeblur_references: views/ribodeblur_references
+  scikit_ribo_indexes: views/scikit_ribo_indexes
+  riboba_fastq: views/riboba_fastq
+default_limits:
+  train_reads: 13000
+  test_reads: 5000
+  external_transcriptome_reads: all

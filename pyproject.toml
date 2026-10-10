@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tabriboicl-benchmark"
+version = "0.1.0"
+description = "Read-specific P-site prediction and a unified ribosome profiling benchmark"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "pyarrow>=15",
+  "scipy>=1.11,<2",
+  "scikit-learn>=1.4,<2",
+  "pysam>=0.22,<0.25",
+  "biopython>=1.83,<2",
+]
+
+[project.optional-dependencies]
+predictor = ["tabicl", "torch"]
+comparators = ["xgboost", "lightgbm"]
+# PSite's compatibility adapter imports seaborn even when QC plots are disabled.
+external = [
+  "gffutils",
+  "pybedtools",
+  "pyfaidx",
+  "joblib",
+  "tqdm",
+  "matplotlib>=3.8,<4",
+  "seaborn>=0.13,<1",
+]
+dev = ["build"]
+
+[project.scripts]
+tabriboicl = "tabriboicl:main"
+
+[tool.setuptools]
+py-modules = ["tabriboicl"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["common*", "preprocessing*", "tools*"]
+exclude = ["tools.*.src*"]
+
