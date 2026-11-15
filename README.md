@@ -1,3 +1,9 @@
+## Introduction
+This is the code repository for a paper titled 
+"TabRiboICL for read-specific P-site prediction and a unified framework for benchmarking P-site assignment in ribosome"
+by Eric Zhuang and Manoj Kandpal.
+
+A preprint is available at https://zenodo.org/records/24237397
 
 ## Install
 
