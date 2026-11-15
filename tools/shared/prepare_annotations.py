@@ -129,13 +129,11 @@ def build_terminal_flanked_transcripts(
     genome_fasta_path: pathlib.Path,
     minimum_terminal_flank: int,
 ) -> tuple[list[dict], dict[str, str]]:
-    """Add genomic terminal sequence when an annotated transcript lacks UTR context.
+    """Add genomic flanks when a transcript is missing UTR sequence.
 
-    Some compact annotations, notably the Ensembl yeast cDNA/GTF pair, begin at
-    the start codon and end immediately after the stop codon. Start/stop
-    metaprofile methods then have no reads that can span either boundary. This
-    function preserves the annotated/spliced cDNA and adds only the missing
-    amount of genomic sequence at its two ends.
+    The yeast annotation can end right at the CDS boundaries, leaving no room
+    for reads that span a start or stop codon. Keep the spliced cDNA and extend
+    short UTRs toward minimum_terminal_flank, stopping at chromosome boundaries.
     """
     def read_sequences(path: pathlib.Path) -> dict[str, str]:
         with path.open() as handle:
@@ -218,7 +216,7 @@ def write_terminal_flanked_gtf(
     original_rows: list[dict],
     flanked_rows: list[dict],
 ) -> None:
-    """Extend terminal exon boundaries to match the generated flanked FASTA."""
+    """Adjust the outer exon boundaries to match the flanked FASTA."""
 
     flanked_by_transcript = {
         str(row["transcript"]): row

@@ -12,43 +12,8 @@ from sklearn.metrics import (
 )
 
 
-# Metric glossary:
-#
-# read-level cares about the final chosen answer per read.
-# candidate-level cares about the quality/calibration/ranking of all candidate scores.
-#
-# offset_metrics(pred_read_df) returns read-level offset metrics:
-# - exact_offset_accuracy: fraction of reads where pred_offset exactly equals
-#   true_offset.
-# - within_1nt_accuracy: fraction of reads where pred_offset is within one
-#   nucleotide of true_offset.
-# - frame_accuracy: fraction of reads where pred_frame equals true_frame.
-#   This can be correct even when the exact offset is wrong by a multiple of
-#   three nucleotides.
-# - read_level_nll: negative log likelihood of the true read-level offset,
-#   computed from q_true (the probability assigned to the true candidate).
-#
-# binary_metrics(y_true, p) returns candidate-level binary classification
-# metrics before naming prefixes are applied:
-# - accuracy: fraction of candidate rows whose thresholded prediction
-#   (p >= 0.5) matches the binary label.
-# - balanced_accuracy: mean of sensitivity and specificity after thresholding
-#   at p >= 0.5; useful when positive candidate rows are rare.
-# - auprc: area under the precision-recall curve using raw probabilities.
-# - brier: mean squared error between the binary labels and probabilities.
-# - nll: binary negative log likelihood / cross entropy.
-# - ece: expected calibration error; lower means predicted probabilities better
-#   match observed positive rates across probability bins.
-# - auroc: area under the ROC curve using raw probabilities. This is NaN when
-#   the labels contain only one class.
-#
-# evaluation.evaluate_candidate_predictions() prefixes binary_metrics outputs
-# with "candidate_": for example, auprc becomes candidate_auprc. It also adds
-# reads, the number of evaluated read IDs, and candidate_rows, the number of
-# candidate rows included in the candidate-level evaluation.
-
-
 def expected_calibration_error(y_true, p, n_bins: int = 15) -> float:
+    """Compare the mean score and positive rate in each probability bin."""
     y_true = np.asarray(y_true)
     p = np.asarray(p)
     bins = np.linspace(0.0, 1.0, n_bins + 1)
@@ -64,6 +29,7 @@ def expected_calibration_error(y_true, p, n_bins: int = 15) -> float:
 
 
 def binary_metrics(y_true, p) -> dict[str, float]:
+    """Score candidate rows. The evaluator adds the 'candidate_' prefix."""
     y_true = np.asarray(y_true)
     p = np.asarray(p)
     pred = (p >= 0.5).astype(int)
@@ -78,11 +44,13 @@ def binary_metrics(y_true, p) -> dict[str, float]:
     try:
         out["auroc"] = roc_auc_score(y_true, p)
     except ValueError:
+        # AUROC needs both positive and negative labels.
         out["auroc"] = np.nan
     return {key: float(value) for key, value in out.items()}
 
 
 def offset_metrics(pred_read_df: pd.DataFrame) -> dict[str, float]:
+    """Score one chosen offset per read; q_true is the true offset's probability."""
     required = {"true_offset", "pred_offset", "true_frame", "pred_frame", "q_true"}
     missing = sorted(required - set(pred_read_df.columns))
     if missing:
@@ -90,6 +58,7 @@ def offset_metrics(pred_read_df: pd.DataFrame) -> dict[str, float]:
 
     exact = (pred_read_df["true_offset"] == pred_read_df["pred_offset"]).mean()
     within1 = (pred_read_df["true_offset"] - pred_read_df["pred_offset"]).abs().le(1).mean()
+    # An offset off by a multiple of three can still get the frame right.
     frame_acc = (pred_read_df["true_frame"] == pred_read_df["pred_frame"]).mean()
     nll = -np.log(np.clip(pred_read_df["q_true"], 1e-12, 1.0)).mean()
     return {

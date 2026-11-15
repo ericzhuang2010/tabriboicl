@@ -1,8 +1,7 @@
-"""Metadata maintenance helpers for the p-site offset prediction dataset.
+"""Refresh SRA metadata and build run lists.
 
-These commands are intentionally outside the routine benchmark workflows. The
-RunInfo fetch command contacts NCBI and should only be run when refreshing
-metadata manifests.
+Fetching RunInfo contacts NCBI. The regular benchmark scripts use the saved
+metadata and don't need to run this step.
 """
 
 from __future__ import annotations

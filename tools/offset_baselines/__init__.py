@@ -1,4 +1,4 @@
-"""Deterministic offset baseline implementations for the P-site offset benchmark."""
+"""Fixed-offset and read-length baselines."""
 
 from .predict import choose_available_offsets, mode_int, run_baselines
 from .coordinate_helpers import (

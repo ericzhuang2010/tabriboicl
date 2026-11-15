@@ -17,9 +17,8 @@ SUPPORTED_RNASES = {
     "rnase-i": ("rnase-i", "reported"),
     "mnase": ("mnase", "reported"),
     "p1": ("p1", "reported"),
-    # RiboBA has no separate model for these metadata values. OTTR describes
-    # library construction rather than a nuclease, so both cases use the
-    # package's RNase-I model and are recorded as assumptions.
+    # OTTR is a library method, not a nuclease. RiboBA has no OTTR or unknown
+    # model, so use RNase-I and record that assumption.
     "ottr": ("rnase-i", "assumed_rnase_i"),
     "unknown": ("rnase-i", "assumed_rnase_i"),
     "": ("rnase-i", "assumed_rnase_i"),
@@ -63,7 +62,7 @@ def extract_fastq(
     max_background_reads: int,
     seed: int,
 ) -> ExtractionSummary:
-    """Write required reads plus a deterministic reservoir of background reads."""
+    """Keep required reads; use a seeded background sample when capped."""
 
     if max_background_reads < 0:
         raise ValueError("max_background_reads must be non-negative")

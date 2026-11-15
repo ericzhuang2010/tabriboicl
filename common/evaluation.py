@@ -174,6 +174,7 @@ def evaluate_candidate_predictions(
     _require_test_columns(test)
 
     predictions = normalize_prediction_columns(predictions)
+    # This evaluation only scores reads with at least one prediction.
     predicted_read_ids = set(predictions["read_id"].astype(str).unique())
     test = test[test["read_id"].astype(str).isin(predicted_read_ids)].copy()
     if test.empty:
@@ -191,7 +192,8 @@ def evaluate_candidate_predictions(
     pred_read["q_true"] = pred_read["q_true"].fillna(0.0)
 
     metrics = offset_metrics(pred_read)
-    metrics.update({f"candidate_{k}": v for k, v in binary_metrics(pred_candidates["label"], pred_candidates["p_offset"]).items()})
+    candidate_metrics = binary_metrics(pred_candidates["label"], pred_candidates["p_offset"])
+    metrics.update({f"candidate_{name}": value for name, value in candidate_metrics.items()})
     metrics["reads"] = float(pred_read["read_id"].nunique())
     metrics["candidate_rows"] = float(len(pred_candidates))
     return metrics, pred_read
@@ -204,6 +206,7 @@ def strict_offset_metrics(pred_read: pd.DataFrame) -> dict[str, float]:
         raise ValueError(f"missing required columns: {missing}")
 
     has_prediction = pred_read["has_prediction"].astype(bool)
+    # Missing predictions stay in the denominator and count as incorrect.
     exact = (has_prediction & pred_read["true_offset"].eq(pred_read["pred_offset"])).mean()
     within1 = (has_prediction & (pred_read["true_offset"] - pred_read["pred_offset"]).abs().le(1)).mean()
     frame_acc = (has_prediction & pred_read["true_frame"].eq(pred_read["pred_frame"])).mean()
@@ -284,7 +287,8 @@ def evaluate_targeted_candidate_predictions(
         }
     )
     if include_candidate_metrics:
-        metrics.update({f"candidate_{k}": v for k, v in binary_metrics(pred_candidates["label"], pred_candidates["p_offset"]).items()})
+        candidate_metrics = binary_metrics(pred_candidates["label"], pred_candidates["p_offset"])
+        metrics.update({f"candidate_{name}": value for name, value in candidate_metrics.items()})
         metrics["candidate_metric_scope"] = "common_test_subset_candidate_strict"
     return metrics, pred_read
 
@@ -301,7 +305,7 @@ def _filter_to_target_reads(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Evaluate p-site offset prediction read-candidate predictions.")
+    parser = argparse.ArgumentParser(description="Evaluate P-site offset predictions for each read.")
     parser.add_argument("--test", type=pathlib.Path, required=True)
     parser.add_argument("--predictions", type=pathlib.Path, required=True)
     parser.add_argument("--metrics-output", type=pathlib.Path)

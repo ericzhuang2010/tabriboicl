@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize p-site offset prediction external-tool within-sample outputs."""
+"""Check which external tools produced output for the within-sample runs."""
 
 from __future__ import annotations
 

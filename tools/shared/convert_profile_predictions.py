@@ -172,9 +172,8 @@ def read_riboba_psite_profile(path: pathlib.Path) -> dict[int, float]:
     if not path.exists() or path.stat().st_size == 0:
         return {}
     frame = pd.read_csv(path, sep="\t")
-    # Early TabRiboICL RiboBA exports used the two printable characters
-    # ``\\t`` instead of a real tab.  Accept those cached native profiles so
-    # a resumed run does not need to repeat expensive model fitting.
+    # Older RiboBA exports escaped tabs instead of writing tab separators.
+    # Accept those too so cached profiles don't need to be regenerated.
     if len(frame.columns) == 1 and "\\t" in str(frame.columns[0]):
         frame = pd.read_csv(path, sep=r"\\t", engine="python")
     if frame.empty:
@@ -394,9 +393,8 @@ def predictions_for_method(args: argparse.Namespace, test: pd.DataFrame) -> pd.D
                     for offset in offsets
                 ]
                 if max(scores, default=0.0) <= 0.0:
-                    # RiboBA has made no call for this read. Leave it absent so
-                    # strict evaluation counts it through coverage instead of
-                    # silently turning it into a fixed-offset prediction.
+                    # No RiboBA call: leave this read missing so strict evaluation
+                    # counts the coverage loss rather than inventing an offset.
                     continue
                 probs = normalize_scores(scores, args.pseudocount)
                 rows.extend(

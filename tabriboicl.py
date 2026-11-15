@@ -1,4 +1,4 @@
-"""Shared command interface for candidate preparation, prediction, and evaluation."""
+"""Prepare read candidates, run predictions, and check the results."""
 from __future__ import annotations
 
 import argparse
@@ -21,7 +21,7 @@ def predict(argv: list[str]) -> int:
     models = [name for name, record in registry.items() if "python_module" in record]
     parser = argparse.ArgumentParser(
         prog="tabriboicl predict", add_help=False, allow_abbrev=False,
-        description="Choose a candidate-table predictor; remaining arguments go to that predictor.",
+        description="Choose a model, then pass it the remaining options.",
     )
     parser.add_argument("--model", choices=["tabriboicl", *models, "logreg"], default="tabriboicl")
     args, remaining = parser.parse_known_args(argv)
@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     for command, (_, help_text) in COMMANDS.items():
         subparsers.add_parser(command, add_help=False, help=help_text)
     subparsers.add_parser("predict", add_help=False, help="Run TabRiboICL or a learned/fitted comparator")
-    # Each implementation owns its options and help; import only the requested route.
+    # Load just this command so optional model packages aren't needed for everything.
     args = parser.parse_args(argv[:1])
     if args.command == "predict":
         return predict(argv[1:])

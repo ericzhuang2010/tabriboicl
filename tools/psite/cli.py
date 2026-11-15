@@ -32,7 +32,7 @@ def _disable_train_qc_plots() -> None:
 
 
 def _align_sklearn_prediction_features() -> None:
-    """Align independently encoded PSite chunks to fitted GBT columns."""
+    """Keep PSite's prediction columns in the same order as its training columns."""
     from sklearn.ensemble import GradientBoostingClassifier
 
     if getattr(GradientBoostingClassifier.predict, "_tabribo_feature_aligned", False):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create the benchmark directory layout without downloading any data."""
+"""Set up the data folders and copy the starting configs."""
 from __future__ import annotations
 
 import argparse

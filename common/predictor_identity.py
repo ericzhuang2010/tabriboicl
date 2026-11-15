@@ -1,4 +1,4 @@
-"""Canonical public identity for the evaluated TabRiboICL predictor."""
+"""TabRiboICL's public name, model details, and saved config hashes."""
 
 from __future__ import annotations
 
@@ -12,14 +12,12 @@ from typing import Any
 
 TABRIBOICL_IDENTITY_RELATIVE_PATH = Path("configs/predictors/tabriboicl.json")
 PREDICTOR_REGISTRY_RELATIVE_PATH = Path("configs/predictors.json")
-PREDICTOR_IDENTITY_MODULE_RELATIVE_PATH = Path(
-    "common/predictor_identity.py"
-)
+PREDICTOR_IDENTITY_MODULE_RELATIVE_PATH = Path("common/predictor_identity.py")
 
 
 @dataclass(frozen=True)
 class PredictorIdentity:
-    """Validated reader-facing identity and its machine-readable source."""
+    """Model details from the config, including the older result names."""
 
     public_name: str
     definition: str
@@ -65,7 +63,7 @@ def _required_text(mapping: dict[str, Any], key: str, context: str) -> str:
 
 
 def load_predictor_registry(repo_root: Path | None = None) -> dict[str, dict[str, Any]]:
-    """Read the shared registry for the eleven benchmark predictors."""
+    """Load and check the predictor entries in configs/predictors.json."""
     root = (repo_root or default_repo_root()).expanduser().resolve()
     path = root / PREDICTOR_REGISTRY_RELATIVE_PATH
     spec = json.loads(path.read_text(encoding="utf-8"))

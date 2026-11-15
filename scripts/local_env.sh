@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Source this file to use the local TabRiboICL environment from this repo.
+# Source this file from your shell to use the local environment.
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ -x "${PROJECT_ROOT}/.conda-envs/tabribo-local/bin/python" ]]; then
@@ -17,5 +17,3 @@ export TABRIBO_EXTERNAL_RLIB_ROOT="${TABRIBO_EXTERNAL_RLIB_ROOT:-${TABRIBO_EXTER
 mkdir -p "$MPLCONFIGDIR"
 mkdir -p "$NCBI_HOME"
 mkdir -p "$HF_HOME"
-
-# Runtime-specific OpenMP overrides, if needed, are set by the caller.

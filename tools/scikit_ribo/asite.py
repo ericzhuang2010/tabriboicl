@@ -21,7 +21,7 @@ from sklearn.model_selection import cross_val_score
 
 
 class IdentitySelector:
-    """RFECV-compatible no-op selector for small or incompatible training sets."""
+    """Keep all features when RFECV can't run on the training set."""
 
     def __init__(self, n_features: int):
         self.n_features_ = n_features
@@ -307,7 +307,7 @@ def build_lightweight_indexes(args: argparse.Namespace) -> int:
 
 
 def safe_convert_gtf(worker: Any) -> None:
-    """Mirror scikit-ribo's GTF conversion while skipping invalid BED12 genes."""
+    """Convert the GTF as scikit-ribo does, skipping genes with invalid BED12 data."""
 
     import gffutils
     import pybedtools as pbt

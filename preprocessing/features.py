@@ -17,87 +17,80 @@ import pysam
 from Bio.Seq import Seq
 
 
-# P-site offset extraction turns each aligned ribosome-profiling read into a small set of
-# possible P-site offsets. The default offset window is intentionally broad:
-# downstream models decide which offset looks most plausible for a read.
+# Keep a broad offset range so the model can score each candidate.
 DEFAULT_OFFSETS = tuple(range(8, 21))
 
-# Missing integer annotations are stored as -1 so the Parquet columns can keep
-# fixed integer types. Empty strings play the same role for string annotations.
+# Use -1 for missing integer annotations and "" for missing text.
 MISSING_INT = -1
 
 
-# Candidate rows are the model-facing table: one row per read-offset candidate.
-# Keep this order in sync with CANDIDATE_SCHEMA so DataFrame construction writes
-# stable Parquet columns.
+# One row per read/offset pair. Keep the order matched to CANDIDATE_SCHEMA.
 CANDIDATE_COLUMNS = [
-    "read_id",  # Sample-prefixed read name; unique within the emitted dataset.
-    "sample_id",  # Sample/run identifier copied from the metadata table.
-    "study_id",  # Source study identifier copied from the metadata table.
-    "organism",  # Organism name copied from the metadata table.
-    "protocol",  # Ribosome-profiling protocol copied from the metadata table.
-    "nuclease",  # Nuclease/enzyme metadata for the library.
-    "library_method",  # Library preparation method metadata.
-    "library_name",  # Library name metadata.
-    "read_length",  # Query/read length in nucleotides.
-    "strand",  # Strand-aware read orientation, "+" or "-".
-    "contig",  # Reference sequence/chromosome containing the alignment, e.g 2L, 3R
-    "mapq",  # Alignment mapping quality.
-    "five_prime_pos",  # Strand-aware genomic coordinate of the read 5-prime end.
-    "three_prime_pos",  # Strand-aware genomic coordinate of the read 3-prime end.
-    "candidate_offset",  # Tested 5-prime-to-P-site offset in read-oriented bases.
-    "candidate_ref_pos",  # Genomic coordinate of the candidate P-site.
-    "candidate_frame",  # CDS frame at the candidate P-site, or -1 outside CDS.
-    "five_prime_frame",  # CDS frame at the read 5-prime end, or -1 outside CDS.
-    "three_prime_frame",  # CDS frame at the read 3-prime end, or -1 outside CDS.
-    "distance_to_cds_start",  # Candidate CDS-coordinate distance from CDS start.
-    "distance_to_cds_stop",  # Candidate distance to the final CDS base.
-    "cds_percentile",  # Candidate CDS position scaled from start 0.0 to end 1.0.
-    "transcript_id",  # Selected transcript overlapping the candidate P-site.
-    "gene_id",  # Gene ID for the selected candidate transcript.
-    "gene_name",  # Gene name for the selected candidate transcript.
-    "landmark",  # Candidate landmark label such as cds_start or stop-last-codon.
-    "five_prime_kmer",  # Strand-oriented k-mer centered on the read 5-prime end.
-    "three_prime_kmer",  # Strand-oriented k-mer centered on the read 3-prime end.
-    "candidate_site_kmer",  # Strand-oriented k-mer centered on the candidate P-site.
-    "candidate_p_codon",  # Strand-oriented codon starting at the candidate P-site.
-    "candidate_a_codon",  # Strand-oriented A-site codon one codon downstream.
-    "candidate_e_codon",  # Strand-oriented E-site codon one codon upstream.
-    "local_coverage_pm15",  # Mean read coverage in the local candidate window.
-    "local_5p_end_density",  # Count of 5-prime read ends in the local window.
-    "local_3p_end_density",  # Count of 3-prime read ends in the local window.
-    "label",  # Silver label: 1 winning landmark offset, 0 other offsets, else null.
-    "label_tier",  # Label provenance or ambiguity reason for the candidate row.
+    "read_id",  # {sample_id}|{BAM query_name}
+    "sample_id",
+    "study_id",
+    "organism",
+    "protocol",
+    "nuclease",
+    "library_method",
+    "library_name",
+    "read_length",
+    "strand",
+    "contig",
+    "mapq",
+    "five_prime_pos",  # Genomic coordinates, with ends taken in read orientation.
+    "three_prime_pos",
+    "candidate_offset",  # Bases from the read's 5-prime end to the P-site.
+    "candidate_ref_pos",
+    "candidate_frame",  # Frames are -1 outside a CDS.
+    "five_prime_frame",
+    "three_prime_frame",
+    "distance_to_cds_start",  # Distances follow the spliced CDS.
+    "distance_to_cds_stop",  # Distance to its final base, not the stop-codon start.
+    "cds_percentile",  # 0 at the CDS start, 1 at the final base.
+    "transcript_id",
+    "gene_id",
+    "gene_name",
+    "landmark",
+    "five_prime_kmer",  # All sequence features follow the read's strand.
+    "three_prime_kmer",
+    "candidate_site_kmer",
+    "candidate_p_codon",
+    "candidate_a_codon",
+    "candidate_e_codon",
+    "local_coverage_pm15",  # Mean coverage in the local window (default +/-15 nt).
+    "local_5p_end_density",
+    "local_3p_end_density",
+    "label",  # 1 for the silver offset, 0 for alternatives, null if unlabeled.
+    "label_tier",
 ]
 
 
-# Read rows are the compact per-read table. They are written for every usable
-# read, even when candidate rows are not written in "labeled" output mode.
+# Keep a row for every usable read, including reads without a silver label.
 READ_COLUMNS = [
-    "read_id",  # Unique read key: "{sample_id}|{BAM query_name}".
-    "sample_id",  # SRA run ID, for example SRR1039768.
-    "study_id",  # Study/project accession from sample table or RunInfo metadata.
-    "organism",  # Organism name attached to this run.
-    "protocol",  # Protocol label used for grouping, usually matching nuclease.
-    "nuclease",  # Inferred or explicit nuclease/library type for this run.
-    "library_method",  # Library selection/strategy from RunInfo or sample table.
-    "library_name",  # SRA library/sample name when available.
-    "read_length",  # Query/read length inferred from the BAM alignment.
-    "strand",  # Read alignment strand: '+' for forward, '-' for reverse.
-    "contig",  # Reference sequence/chromosome name where the read aligns.
-    "mapq",  # BAM mapping quality for this primary alignment.
-    "five_prime_pos",  # Strand-aware genomic coordinate of the read 5-prime end.
-    "three_prime_pos",  # Strand-aware genomic coordinate of the read 3-prime end.
-    "five_prime_frame",  # CDS frame at the read 5-prime end, or -1 outside CDS.
-    "three_prime_frame",  # CDS frame at the read 3-prime end, or -1 outside CDS.
-    "silver_offset",  # Winning candidate offset if exactly one landmark hit exists.
-    "silver_landmark",  # Landmark hit by silver_offset, or ambiguity/missing marker.
-    "label_tier",  # Per-read label status: labeled landmark, ambiguous, or empty.
+    "read_id",
+    "sample_id",
+    "study_id",
+    "organism",
+    "protocol",
+    "nuclease",
+    "library_method",
+    "library_name",
+    "read_length",
+    "strand",
+    "contig",
+    "mapq",
+    "five_prime_pos",
+    "three_prime_pos",
+    "five_prime_frame",
+    "three_prime_frame",
+    "silver_offset",  # Set only when exactly one offset hits a landmark.
+    "silver_landmark",
+    "label_tier",
 ]
 
 
-# Explicit schemas keep Parquet types small and predictable across samples.
-# This matters because the per-sample files are later concatenated directly.
+# Fixed types let us combine sample files without schema mismatches.
 CANDIDATE_SCHEMA = pa.schema(
     [
         ("read_id", pa.string()),
@@ -141,7 +134,6 @@ CANDIDATE_SCHEMA = pa.schema(
 )
 
 
-# The read table stores only read-level metadata plus the silver landmark label.
 READ_SCHEMA = pa.schema(
     [
         ("read_id", pa.string()),
@@ -169,7 +161,7 @@ READ_SCHEMA = pa.schema(
 
 @dataclasses.dataclass(frozen=True)
 class SampleContext:
-    """Metadata attached to every row emitted for one SRA run."""
+    """Metadata for one SRA run."""
 
     sample_id: str
     organism: str
@@ -191,12 +183,7 @@ class CdsSegment:
 
 @dataclasses.dataclass
 class TranscriptModel:
-    """CDS-only transcript model used for coordinate and frame annotation.
-
-    GTF stores CDS features as genomic segments. This class keeps those segments
-    in transcript order so a genomic coordinate can be converted into a CDS
-    coordinate, regardless of transcript strand.
-    """
+    """Keep CDS segments in transcript order to map genomic positions to the CDS."""
 
     transcript_id: str
     gene_id: str
@@ -206,16 +193,10 @@ class TranscriptModel:
     segments: list[CdsSegment]
 
     def __post_init__(self) -> None:
-        # Transcript order is genomic ascending on the plus strand and genomic
-        # descending on the minus strand.
-        if self.strand == "+":
-            self.segments.sort(key=lambda segment: segment.start)
-        else:
-            self.segments.sort(key=lambda segment: segment.start, reverse=True)
+        # Walk backwards through genomic positions for minus-strand transcripts.
+        self.segments.sort(key=lambda segment: segment.start, reverse=self.strand != "+")
 
-        # prefix_lengths[i] is the CDS length before segment i in transcript
-        # orientation. It lets pos_to_cds_coord return a transcript-relative
-        # coordinate without flattening the whole CDS into per-base arrays.
+        # CDS bases before each segment, so we don't need a per-base lookup.
         self.prefix_lengths: list[int] = []
         total = 0
         for segment in self.segments:
@@ -234,7 +215,7 @@ class TranscriptModel:
         return None
 
     def landmark_for_coord(self, coord: int) -> str:
-        """Return a training landmark name for CDS start or stop-codon start."""
+        """Landmarks are the CDS start and the first base of its final codon."""
 
         if coord == 0:
             return "cds_start"
@@ -245,11 +226,7 @@ class TranscriptModel:
 
 @dataclasses.dataclass(frozen=True)
 class CdsAnnotation:
-    """Annotation returned for a single genomic position.
-
-    A position may not overlap any CDS; in that case the default values are used
-    and frame/distances are set to MISSING_INT.
-    """
+    """CDS info at one position. Defaults mean the position is outside a CDS."""
 
     transcript_id: str = ""
     gene_id: str = ""
@@ -262,7 +239,7 @@ class CdsAnnotation:
 
 
 class CdsIndex:
-    """Binned lookup from genomic coordinate to overlapping CDS annotations."""
+    """Group transcripts into genomic bins to speed up overlap queries."""
 
     def __init__(self, models: list[TranscriptModel], bin_size: int = 1000):
         self.models = models
@@ -270,8 +247,6 @@ class CdsIndex:
         self.bins: dict[str, dict[int, list[int]]] = defaultdict(lambda: defaultdict(list))
         for model_idx, model in enumerate(models):
             for segment in model.segments:
-                # Store transcript IDs in every genomic bin touched by any CDS
-                # segment. Querying a position then checks only nearby models.
                 first_bin = segment.start // bin_size
                 last_bin = (segment.end - 1) // bin_size
                 for bin_id in range(first_bin, last_bin + 1):
@@ -287,8 +262,7 @@ class CdsIndex:
         annotations: list[CdsAnnotation] = []
         seen: set[int] = set()
         for model_idx in model_ids:
-            # A transcript can be inserted more than once if multiple CDS
-            # segments share this bin. Deduplicate before testing the position.
+            # Several segments from the same transcript can share a bin.
             if model_idx in seen:
                 continue
             seen.add(model_idx)
@@ -318,9 +292,8 @@ class CdsIndex:
             return CdsAnnotation()
 
         def rank(annotation: CdsAnnotation) -> tuple[int, int, int, str]:
-            # Prefer landmark hits because they create labels; otherwise prefer
-            # frame 0, then positions near CDS boundaries, then transcript ID
-            # for deterministic tie-breaking.
+            # Prefer landmarks, then frame 0, then nearby boundaries.
+            # Transcript ID breaks any remaining ties.
             landmark_rank = 0 if annotation.landmark else 1
             frame_rank = 0 if annotation.frame == 0 else 1
             boundary_distance = min(
@@ -333,12 +306,7 @@ class CdsIndex:
 
 
 class PositionCountIndex:
-    """Fast range counter for sparse genomic positions.
-
-    Used for 5-prime and 3-prime read-end densities. Instead of scanning every
-    observed read end for every candidate P-site, this stores sorted end
-    positions and prefix sums per contig.
-    """
+    """Count read ends in a window using sorted positions and prefix sums."""
 
     def __init__(self, counter_by_contig: dict[str, Counter[int]]):
         self.positions: dict[str, np.ndarray] = {}
@@ -346,11 +314,6 @@ class PositionCountIndex:
         for contig, counter in counter_by_contig.items():
             if not counter:
                 continue
-            # Example:
-            #   counter: {100: 3, 105: 1, 120: 7}
-            #   positions: [100, 105, 120]
-            #   prefix: [0, 3, 4, 11]
-            # Then query(100, 121) is prefix[3] - prefix[0] == 11.
             positions = np.fromiter(sorted(counter), dtype=np.int64)
             counts = np.fromiter((counter[int(pos)] for pos in positions), dtype=np.int64)
             self.positions[contig] = positions
@@ -365,15 +328,15 @@ class PositionCountIndex:
         prefix = self.prefix[contig]
         lo = bisect.bisect_left(positions, start)
         hi = bisect.bisect_left(positions, end)
+        # Leading zero in prefix makes this work when lo is the first position.
         return int(prefix[hi] - prefix[lo])
 
 
 class CoverageIndex:
-    """Fast mean-coverage lookup for read-alignment intervals.
+    """Mean coverage without storing a count for every genomic base.
 
-    The input is a difference array per contig: +1 at each read start and -1 at
-    each read end. This class converts those sparse change points into coverage
-    integrals, so mean coverage over any window is an O(log n) query.
+    Read intervals are [start, end), with +1 at starts and -1 at ends. Store the
+    area under that curve so each window query only needs two binary searches.
     """
 
     def __init__(self, diff_by_contig: dict[str, Counter[int]]):
@@ -390,9 +353,7 @@ class CoverageIndex:
             current = 0
             previous = 0
             for pos in sorted(diff):
-                # Between two breakpoints, coverage is constant. Accumulate the
-                # area under the coverage curve before applying the change at
-                # the new breakpoint.
+                # Add the area before applying the coverage change at pos.
                 if pos > previous:
                     total += current * (pos - previous)
                 current += diff[pos]
@@ -405,7 +366,7 @@ class CoverageIndex:
             self.coverages[contig] = np.asarray(coverages, dtype=np.int64)
 
     def _integral_at(self, contig: str, pos: int) -> int:
-        """Return integral coverage from coordinate 0 up to coordinate pos."""
+        """Area under the coverage curve from 0 to pos."""
 
         breaks = self.breaks.get(contig)
         if breaks is None or len(breaks) == 0:
@@ -419,7 +380,7 @@ class CoverageIndex:
         )
 
     def mean_coverage(self, contig: str, start: int, end: int) -> float:
-        """Average read coverage over [start, end), clamped away from negatives."""
+        """Mean coverage over [start, end), with start clamped to zero."""
 
         start = max(0, start)
         end = max(start + 1, end)
@@ -428,7 +389,7 @@ class CoverageIndex:
 
 
 def parse_attributes(raw: str) -> dict[str, str]:
-    """Parse the quoted key-value attribute field used by these GTF files."""
+    """Read key/value pairs such as gene_id "YAL001C" from a GTF field."""
 
     return {match.group(1): match.group(2) for match in re.finditer(r'(\S+) "([^"]*)"', raw)}
 
@@ -459,12 +420,9 @@ def parse_cds_index(gtf_path: pathlib.Path) -> CdsIndex:
                     "segments": [],
                 },
             )
-            # GTF coordinates are 1-based inclusive. Convert to the 0-based
-            # half-open convention used by pysam and the rest of this module.
+            # GTF is 1-based inclusive; pysam uses 0-based half-open intervals.
             row["segments"].append(CdsSegment(int(fields[3]) - 1, int(fields[4])))
 
-    # Build one transcript model per transcript_id. The model constructor sorts
-    # each transcript's segments in transcript orientation.
     models = [
         TranscriptModel(
             transcript_id=str(row["transcript_id"]),
@@ -481,8 +439,6 @@ def parse_cds_index(gtf_path: pathlib.Path) -> CdsIndex:
 
 
 def read_sample_table(path: pathlib.Path) -> list[dict[str, str]]:
-    """Read the tab-delimited run table that drives batch extraction."""
-
     with path.open(newline="") as handle:
         return [dict(row) for row in csv.DictReader(handle, delimiter="\t")]
 
@@ -503,7 +459,7 @@ def load_runinfo(metadata_dir: pathlib.Path) -> dict[str, dict[str, str]]:
 
 
 def infer_nuclease(study_id: str, library_name: str, library_selection: str) -> str:
-    """Best-effort protocol/nuclease label for known p-site offset prediction studies."""
+    """Fill in missing protocol labels for the studies in this dataset."""
 
     lower_name = library_name.lower()
     lower_selection = library_selection.lower()
@@ -541,8 +497,7 @@ def sample_contexts(
             or row.get("library_method")
             or "unknown"
         )
-        # Prefer explicit sample-table fields, then fall back to study-specific
-        # inference from SRA metadata.
+        # Use the sample table's nuclease if supplied; infer it otherwise.
         nuclease = row.get("nuclease") or infer_nuclease(
             study_id,
             library_name,
@@ -574,8 +529,6 @@ def parse_offsets(raw: str) -> tuple[int, ...]:
 
 
 def ensure_fasta_index(fasta_path: pathlib.Path) -> None:
-    """Create genome.fa.fai when pysam needs random access and no index exists."""
-
     if not pathlib.Path(str(fasta_path) + ".fai").exists():
         pysam.faidx(str(fasta_path))
 
@@ -598,8 +551,6 @@ def oriented_sequence(
     seq = left_pad + fasta.fetch(contig, fetch_start, fetch_end).upper() + right_pad
     if len(seq) < length:
         seq += "N" * (length - len(seq))
-    # Feature strings are oriented relative to the read/candidate strand. A
-    # minus-strand candidate therefore sees reverse-complemented sequence.
     if strand == "-":
         seq = str(Seq(seq).reverse_complement())
     return seq
@@ -647,9 +598,7 @@ def reference_pos_for_candidate(read: pysam.AlignedSegment, offset: int) -> int:
         five_prime_pos, _, strand = five_three_prime_positions(read)
         return five_prime_pos + offset if strand == "+" else five_prime_pos - offset
 
-    # Use the read CIGAR to map query coordinates to reference coordinates. This
-    # preserves candidate positions across indels instead of assuming a perfect
-    # ungapped alignment.
+    # Use the CIGAR mapping so indels don't shift the candidate position.
     query_to_ref = {
         query_pos: ref_pos
         for query_pos, ref_pos in read.get_aligned_pairs(matches_only=False)
@@ -665,8 +614,8 @@ def reference_pos_for_candidate(read: pysam.AlignedSegment, offset: int) -> int:
     if ref_pos is not None:
         return int(ref_pos)
 
-    # If the exact query base is an insertion/soft-clipped base with no reference
-    # coordinate, walk outward to the nearest aligned query base.
+    # Insertions and soft clips have no reference position. Search nearby bases,
+    # checking towards the read's 3-prime end first when distances tie.
     for step in range(1, query_len + 1):
         next_qpos = qpos + direction * step
         if 0 <= next_qpos < query_len and query_to_ref.get(next_qpos) is not None:
@@ -675,8 +624,7 @@ def reference_pos_for_candidate(read: pysam.AlignedSegment, offset: int) -> int:
         if 0 <= previous_qpos < query_len and query_to_ref.get(previous_qpos) is not None:
             return int(query_to_ref[previous_qpos])
 
-    # Extremely defensive fallback for unusual reads with no usable aligned
-    # pairs after pysam inference.
+    # Fall back to the read end if none of the query bases could be mapped.
     five_prime_pos, _, strand = five_three_prime_positions(read)
     return five_prime_pos + offset if strand == "+" else five_prime_pos - offset
 
@@ -710,8 +658,6 @@ def build_density_indexes(
             usable_reads += 1
             contig = read.reference_name
             five_prime_pos, three_prime_pos, _strand = five_three_prime_positions(read)
-            # End-density features count strand-aware read ends near a candidate
-            # site. Coverage features count every base overlapped by a read.
             five_prime_by_contig[contig][five_prime_pos] += 1
             three_prime_by_contig[contig][three_prime_pos] += 1
             diff_by_contig[contig][int(read.reference_start)] += 1
@@ -726,7 +672,7 @@ def build_density_indexes(
 
 
 class ParquetSink:
-    """Buffered Parquet writer with fixed schema and chunked flushing."""
+    """Write Parquet in batches instead of keeping the whole sample in memory."""
 
     def __init__(self, path: pathlib.Path, schema: pa.Schema, columns: list[str]):
         self.path = path
@@ -738,16 +684,12 @@ class ParquetSink:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def append(self, rows: Iterable[dict[str, object]]) -> None:
-        """Append rows to the in-memory buffer and flush large batches."""
-
         for row in rows:
             self.rows.append(row)
         if len(self.rows) >= 250_000:
             self.flush()
 
     def flush(self) -> None:
-        """Write buffered rows to the Parquet stream."""
-
         if not self.rows:
             return
         frame = pd.DataFrame.from_records(self.rows, columns=self.columns)
@@ -764,8 +706,6 @@ class ParquetSink:
         self.rows = []
 
     def close(self) -> None:
-        """Flush and close the writer; remove empty files left by no-row sinks."""
-
         self.flush()
         if self.writer is not None:
             self.writer.close()
@@ -792,12 +732,10 @@ def candidate_rows_for_read(
     read_length = read.query_length or read.infer_query_length() or read.query_alignment_length
     read_id = f"{context.sample_id}|{read.query_name}"
 
-    # The read-end frames are features for downstream models. They are not the
-    # labels; labels are assigned only from candidate offsets that hit landmarks.
+    # Read-end frames are features; landmark hits below determine the labels.
     five_prime_annotation = cds_index.best_annotation(contig, five_prime_pos)
     three_prime_annotation = cds_index.best_annotation(contig, three_prime_pos)
 
-    # Shared read-level fields copied into every candidate row for this read.
     row_base = {
         "read_id": read_id,
         "sample_id": context.sample_id,
@@ -820,16 +758,12 @@ def candidate_rows_for_read(
     rows: list[dict[str, object]] = []
     positive_offsets: dict[int, str] = {}
     for offset in offsets:
-        # p_pos is the candidate P-site coordinate for this offset. A-site and
-        # E-site codons are one codon downstream/upstream in transcript
-        # orientation, which flips sign on the minus strand.
+        # A and E sites are one codon away, following the transcript's strand.
         p_pos = reference_pos_for_candidate(read, offset)
         a_pos = p_pos + 3 if strand == "+" else p_pos - 3
         e_pos = p_pos - 3 if strand == "+" else p_pos + 3
         annotation = cds_index.best_annotation(contig, p_pos)
 
-        # A candidate is "positive" only when it lands exactly on a known CDS
-        # landmark and the landmark is in coding frame 0.
         if annotation.landmark and annotation.frame == 0:
             positive_offsets[offset] = annotation.landmark
         rows.append(
@@ -845,8 +779,6 @@ def candidate_rows_for_read(
                 "gene_id": annotation.gene_id,
                 "gene_name": annotation.gene_name,
                 "landmark": annotation.landmark,
-                # Sequence features use strand-oriented sequence, so the same
-                # column is comparable across plus- and minus-strand reads.
                 "five_prime_kmer": centered_kmer(fasta, contig, five_prime_pos, strand, kmer_radius),
                 "three_prime_kmer": centered_kmer(
                     fasta,
@@ -859,8 +791,6 @@ def candidate_rows_for_read(
                 "candidate_p_codon": codon_from_first_base(fasta, contig, p_pos, strand),
                 "candidate_a_codon": codon_from_first_base(fasta, contig, a_pos, strand),
                 "candidate_e_codon": codon_from_first_base(fasta, contig, e_pos, strand),
-                # Local density features summarize the pileup around the
-                # candidate site in the same window for every offset.
                 "local_coverage_pm15": float(
                     coverage_index.mean_coverage(
                         contig,
@@ -888,28 +818,21 @@ def candidate_rows_for_read(
         )
 
     if len(positive_offsets) == 1:
-        # Tier 1 silver label: exactly one candidate offset explains a CDS
-        # start/stop landmark. The winning offset is positive and all other
-        # offsets for this read are negatives.
+        # Only use a silver label when exactly one offset hits a landmark.
         silver_offset, silver_landmark = next(iter(positive_offsets.items()))
         for row in rows:
             row["label"] = 1 if row["candidate_offset"] == silver_offset else 0
             row["label_tier"] = "start_stop_landmark"
     elif len(positive_offsets) > 1:
-        # Multiple landmark-compatible offsets make the read unusable as a
-        # single-positive training example, but we still count it in the summary.
+        # Keep ambiguous reads in the summary, but leave their labels unset.
         silver_offset = MISSING_INT
         silver_landmark = "ambiguous_landmark"
         for row in rows:
             row["label_tier"] = "ambiguous_landmark"
     else:
-        # Most reads do not cross a CDS start/stop landmark at any candidate
-        # offset. They stay unlabeled in the read table.
         silver_offset = MISSING_INT
         silver_landmark = ""
 
-    # The read table is useful for summaries and grouping even when candidate
-    # rows are filtered by output mode.
     read_row = {
         **row_base,
         "silver_offset": int(silver_offset),
@@ -931,19 +854,16 @@ def extract_sample(
     kmer_radius: int,
     local_window: int,
 ) -> dict[str, object]:
-    """Extract all p-site offset prediction features for one sample/BAM."""
+    """Extract candidate features and silver labels from one sample's BAM."""
 
     gtf_path = ref_dir / "annotation.gtf"
     fasta_path = ref_dir / "genome.fa"
     ensure_fasta_index(fasta_path)
 
-    # Reference annotation and sequence are sample-specific through ref_key
-    # because the current p-site offset prediction set mixes Drosophila and yeast runs.
     cds_index = parse_cds_index(gtf_path)
     fasta = pysam.FastaFile(str(fasta_path))
 
-    # First BAM pass: build coverage and read-end density indexes. The second
-    # pass can then query these indexes cheaply for every candidate offset.
+    # First pass builds density indexes; the second looks up each candidate.
     coverage_index, five_prime_index, three_prime_index, density_reads = build_density_indexes(
         bam_path,
         min_mapq,
@@ -958,8 +878,7 @@ def extract_sample(
     )
     read_path = table_dir / "reads_by_sample" / f"{context.sample_id}.reads.parquet"
 
-    # output_mode controls only candidate-row sinks. The read table is always
-    # written because it is compact and useful for diagnostics.
+    # Output mode filters candidates. The read table is always written.
     candidate_sink = (
         ParquetSink(candidate_path, CANDIDATE_SCHEMA, CANDIDATE_COLUMNS)
         if output_mode in {"all", "both"}
@@ -985,9 +904,6 @@ def extract_sample(
             if max_reads is not None and processed_reads >= max_reads:
                 break
 
-            # Second BAM pass: emit one read row and one candidate row per
-            # requested offset. With default offsets 8-20, that is 13 candidate
-            # rows per processed read before output-mode filtering.
             rows, read_row = candidate_rows_for_read(
                 read,
                 context,
@@ -1006,15 +922,11 @@ def extract_sample(
                 labeled_reads += 1
                 landmark_rows += len(rows)
                 if landmark_sink is not None:
-                    # In "labeled" mode, only these labeled landmark candidate
-                    # rows are written to the candidate-feature table.
                     landmark_sink.append(rows)
             elif read_row["label_tier"] == "ambiguous_landmark":
                 ambiguous_reads += 1
 
             if candidate_sink is not None:
-                # In "all" or "both" mode, every candidate row for every
-                # processed read is written.
                 candidate_sink.append(rows)
             read_sink.append([read_row])
 
@@ -1023,7 +935,6 @@ def extract_sample(
             sink.close()
     fasta.close()
 
-    # This summary row becomes tables/feature_summary.tsv.
     return {
         "sample_id": context.sample_id,
         "study_id": context.study_id,
@@ -1044,7 +955,7 @@ def extract_sample(
 
 
 def combine_parquet_files(paths: list[pathlib.Path], output_path: pathlib.Path) -> str:
-    """Concatenate existing per-sample Parquet files into one combined file."""
+    """Combine sample tables, skipping files that weren't written."""
 
     existing_paths = [path for path in paths if path.exists()]
     if not existing_paths:
@@ -1056,7 +967,6 @@ def combine_parquet_files(paths: list[pathlib.Path], output_path: pathlib.Path) 
         for path in existing_paths:
             table = pq.read_table(path)
             if writer is None:
-                # Use the first table's schema as the combined output schema.
                 writer = pq.ParquetWriter(
                     output_path,
                     table.schema,
@@ -1071,8 +981,6 @@ def combine_parquet_files(paths: list[pathlib.Path], output_path: pathlib.Path) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point for batch p-site offset prediction feature extraction."""
-
     parser = argparse.ArgumentParser(
         description="Extract p-site offset candidate features from aligned BAMs."
     )
@@ -1103,8 +1011,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    # Build one SampleContext per table row before touching BAMs, so metadata
-    # fallback/inference is handled consistently across samples.
     sample_rows = read_sample_table(args.sample_table)
     contexts = sample_contexts(sample_rows, load_runinfo(args.metadata_dir))
     offsets = parse_offsets(args.offsets)
@@ -1112,8 +1018,6 @@ def main(argv: list[str] | None = None) -> int:
 
     summaries: list[dict[str, object]] = []
     for context in contexts:
-        # The aligner stage writes one coordinate-sorted BAM per SRA run using
-        # this fixed naming convention.
         bam_path = args.align_dir / f"{context.sample_id}.Aligned.sortedByCoord.out.bam"
         if not bam_path.exists():
             print(f"missing BAM for {context.sample_id}: {bam_path}")
@@ -1136,16 +1040,12 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if summaries:
-        # The summary is small and human-readable; it records row counts and
-        # paths for every sample that was actually processed.
         summary_path = args.outdir / "tables" / "feature_summary.tsv"
         summary_path.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(summaries).to_csv(summary_path, sep="\t", index=False)
         print(f"wrote {summary_path}")
         if not args.skip_combined:
-            # Combined outputs are convenient for downstream splitting/training.
-            # Empty path fields are skipped, which is why labeled mode combines
-            # landmarks and reads but not all candidates.
+            # A blank path means that output mode didn't write this table.
             landmark_paths = [
                 pathlib.Path(str(row["landmark_path"]))
                 for row in summaries

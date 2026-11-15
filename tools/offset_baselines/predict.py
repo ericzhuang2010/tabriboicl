@@ -17,7 +17,6 @@ def choose_available_offsets(test: pd.DataFrame, target_by_read: dict[str, int])
     rows: list[dict[str, object]] = []
     for read_id, group in test.groupby("read_id", sort=False):
         candidates = sorted(group["candidate_offset"].astype(int).unique())
-        # the default value candidates[0] should not be needed
         target = int(target_by_read.get(str(read_id), candidates[0]))
         if target in candidates:
             chosen = target
@@ -33,34 +32,24 @@ def choose_available_offsets(test: pd.DataFrame, target_by_read: dict[str, int])
             )
     return pd.DataFrame(rows)
 
+
 def run_baselines(train: pd.DataFrame, test: pd.DataFrame, global_offset: int | None) -> dict[str, pd.DataFrame]:
-    # Look only at training rows where label == 1
-    # For the intended labeled benchmark data, each usable read_id should
-    # have exactly one row where label=1
+    # Each labeled read contributes one positive offset.
     positives = train[train["label"].eq(1)].copy()
     if positives.empty:
         raise ValueError("training split has no positive candidate rows")
 
-   # Count which candidate_offset value appears most often.
     estimated_global = mode_int(positives["candidate_offset"])
     fixed_offset = estimated_global if global_offset is None else int(global_offset)
-    # gets all the read ids in test
     read_ids = test["read_id"].astype(str).unique()
-    # map each read_id to the fixed_offset
     fixed_targets = {read_id: fixed_offset for read_id in read_ids}
 
-    # dict of read_length: most_common_true_offset_for_that_length
     length_offsets = positives.groupby("read_length")["candidate_offset"].agg(mode_int).to_dict()
-    
-    # if the same read_id appears with two different read_length values, only the 
-    # first occurrence is kept.
-    # In the intended data model, a read_id should have exactly one read_length. 
-    # The same read appears multiple times only because it has multiple candidate_offset 
-    # rows, not because its length changes.
+
+    # Candidate rows repeat read lengths, so take one length per read.
     test_read_lengths = test[["read_id", "read_length"]].drop_duplicates("read_id")
 
-    # a dictionary mapping each (test read id, read_length) to the offset predicted
-    # for its read length:
+    # Unseen lengths fall back to the fixed offset.
     length_targets = {
         str(row.read_id): int(length_offsets.get(row.read_length, fixed_offset))
         for row in test_read_lengths.itertuples(index=False)
@@ -72,9 +61,6 @@ def run_baselines(train: pd.DataFrame, test: pd.DataFrame, global_offset: int | 
     }
 
 
-# For the intended labeled benchmark data, each usable read_id should
-# have exactly one row where label=1
-# each read_id should have the same read_length, but candidate_offset can be different
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run deterministic p-site offset baselines.")
     parser.add_argument("--train", type=pathlib.Path, required=True)
